@@ -1,0 +1,15 @@
+---
+test:
+  seconds: 3
+  code: |
+    def main():
+         a = run('read_holding_register --address 40010 --count 2 --ip localhost')
+         b = run('read_holding_register --address 40012 --count 2 --ip localhost')
+         return a+b
+  template:
+    - name: temperature1
+      note: temperature
+      type: B32_FLOAT
+    - name: temperature2
+      note: temperature
+      type: B32_FLOAT
