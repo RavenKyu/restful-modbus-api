@@ -137,8 +137,6 @@ def argument_parser():
         '-a', '--address', type=int, default=1, help='address'),
     read_coils_parser.add_argument(
         '-c', '--count', type=int, default=1, help='number of coils')
-    read_coils_parser.set_defaults(
-        func=read_coils, function_code=0x01)
 
     ###########################################################################
     # Read Discrete Inputs 0x02
@@ -150,8 +148,6 @@ def argument_parser():
         '-a', '--address', type=int, default=10001, help='address'),
     read_discrete_inputs_parser.add_argument(
         '-c', '--count', type=int, default=1, help='number of coils')
-    read_discrete_inputs_parser.set_defaults(
-        func=read_discrete_inputs, function_code=0x02)
 
     ###########################################################################
     # Read Holding Registers 0x03
@@ -163,8 +159,6 @@ def argument_parser():
         '-a', '--address', type=int, default=40001, help='address'),
     read_holding_register_parser.add_argument(
         '-c', '--count', type=int, default=2, help='number of registers')
-    read_holding_register_parser.set_defaults(
-        func=read_holding_register, function_code=0x03)
 
     ###########################################################################
     # Read Input Registers 0x04
@@ -176,8 +170,6 @@ def argument_parser():
         '-a', '--address', type=int, default=30001, help='address'),
     read_input_register_parser.add_argument(
         '-c', '--count', type=int, default=2, help='number of registers')
-    read_input_register_parser.set_defaults(
-        func=read_input_registers, function_code=0x04)
 
     ###########################################################################
     # Writing Single Coil 0x05
@@ -190,8 +182,6 @@ def argument_parser():
     write_single_coil_parser.add_argument(
         'value', type=int, choices=[0, 1],
         help='1/0 boolean.')
-    write_single_coil_parser.set_defaults(
-        func=write_single_coil, function_code=0x05)
 
     ###########################################################################
     # Writing Single Register 0x06
@@ -202,8 +192,6 @@ def argument_parser():
         conflict_handler='resolve')
     write_single_registers_parser.add_argument(
         'address', type=int, help='address where the value stores')
-    write_single_registers_parser.set_defaults(
-        func=write_single_register, function_code=0x06)
 
     ###########################################################################
     # Writing Multiple Coils 0x0f
@@ -215,8 +203,6 @@ def argument_parser():
         'address', type=int, help='address where the value stores')
     write_single_coil_parser.add_argument(
         'values', type=regex_type_0or1, help='1/0 boolean. ex) 01101100')
-    write_single_coil_parser.set_defaults(
-        func=write_multiple_coils, function_code=0x0f)
 
     ###########################################################################
     # Writing Multiple Register 0x10
@@ -228,15 +214,8 @@ def argument_parser():
         conflict_handler='resolve')
     write_multiple_registers_parser.add_argument(
         'address', type=int, help='address where the value stores')
-    write_multiple_registers_parser.set_defaults(
-        func=write_multiple_registers, function_code=0x10)
 
     return parser
 
-def run(command: str):
-    parser = argument_parser()
-    spec = parser.parse_args(command.split())
-    return spec.func(spec)
 
-
-__all__ = ['run', 'argument_parser', ]
+__all__ = ['argument_parser', ]

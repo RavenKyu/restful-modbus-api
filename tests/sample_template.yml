@@ -1,15 +1,43 @@
 ---
 test:
+  comm:
+    type: tcp
+    setting:
+      host: localhost
+      port: 502
+
   seconds: 3
   code: |
     def main():
-         a = run('read_holding_register --address 40010 --count 2 --ip localhost')
-         b = run('read_holding_register --address 40012 --count 2 --ip localhost')
-         return a+b
+        a = read_holding_registers('--address 40001 --count 4')
+        b = read_holding_registers('--address 40006 --count 1')
+        return a + b
   template:
-    - name: temperature1
-      note: temperature
-      type: B32_FLOAT
-    - name: temperature2
-      note: temperature
-      type: B32_FLOAT
+    - key: data01
+      note: String
+      type: B64_STRING
+
+    - key: data02
+      note: wrong value
+      type: B16_INT
+
+test2:
+  comm:
+    type: tcp
+    setting:
+      host: localhost
+      port: 502
+
+  seconds: 3
+  code: |
+    def main():
+        a = read_holding_registers('--address 40019 --count 1')
+        return a
+  template:
+    - key: data01
+      note:
+      type: B8_INT
+
+    - key: data02
+      note:
+      type: B8_UINT

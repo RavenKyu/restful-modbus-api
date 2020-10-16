@@ -12,25 +12,149 @@ from pymodbus.client.sync import ModbusTcpClient as _ModbusClient
 from pymodbus.payload import BinaryPayloadBuilder, BinaryPayloadDecoder
 from pymodbus.constants import Endian
 from pymodbus import exceptions
+from restful_modbus_api.modbus_handler.arugment_parser import \
+    argument_parser
 
 
 ###############################################################################
 class ModbusClient(_ModbusClient):
     def __init__(self, host, port, verbose=0):
         _ModbusClient.__init__(self, host=host, por=port)
-        self._verbose = verbose
 
-    def _recv(self, size):
-        data = _ModbusClient._recv(self, size)
-        if self._verbose:
-            request_response_messages(
-                'recv data', data, f'{self.host}:{self.port}')
-        return data
+    # =========================================================================
+    def response_handle(f):
+        @functools.wraps(f)
+        def func(*args, **kwargs):
+            response = f(*args, **kwargs)
+            data = response.encode()
+            if 1 == len(data):
+                raise ExceptionResponse(
+                    ModbusExceptions.decode(int.from_bytes(data, 'big')))
+            return data[1:]
 
-    def _send(self, request):
-        if self._verbose:
-            request_response_messages('send data', request, get_ip())
-        return _ModbusClient._send(self, request)
+        return func
+
+    # =========================================================================
+    def error_handle(f):
+        @functools.wraps(f)
+        def func(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except exceptions.ConnectionException as e:
+                print('** Error: ', e)
+            except ExceptionResponse as e:
+                print('** Error: ', e)
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                return
+
+        return func
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def read_input_registers(self, command):
+        parser = argument_parser()
+        command = 'read_input_register ' + command
+        spec = parser.parse_args(command.split())
+        response = _ModbusClient.read_input_registers(
+            self, spec.address, spec.count)
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def read_holding_registers(self, command):
+        parser = argument_parser()
+        command = 'read_holding_register ' + command
+        spec = parser.parse_args(command.split())
+        response = _ModbusClient.read_input_registers(
+            self, spec.address, spec.count)
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def read_discrete_inputs(self, command):
+        parser = argument_parser()
+        command = 'read_discrete_inputs ' + command
+        spec = parser.parse_args(command.split())
+        response = _ModbusClient.read_discrete_inputs(
+            self, spec.address, spec.count)
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def read_coils(self, command):
+        parser = argument_parser()
+        command = 'read_coils ' + command
+        spec = parser.parse_args(command.split())
+        response = _ModbusClient.read_coils(
+            self, spec.address, spec.count)
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def write_single_coil(self, command):
+        parser = argument_parser()
+        command = 'write_single_coil ' + command
+        spec = parser.parse_args(command.split())
+        response = _ModbusClient.write_coil(
+            self, spec.address, spec.value)
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def write_multiple_coils(self, command):
+        parser = argument_parser()
+        command = 'write_multiple_coils ' + command
+        spec = parser.parse_args(command.split())
+        response = _ModbusClient.write_coils(
+            self, spec.address, list(map(int, spec.values)))
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def write_single_register(self, command):
+        parser = argument_parser()
+        command = 'write_single_register ' + command
+        spec = parser.parse_args(command.split())
+        builder = BinaryPayloadBuilder(byteorder=Endian.Big,
+                                       wordorder=Endian.Big)
+        for func, value in spec.values[:1]:
+            getattr(builder, func)(value)
+        payload = builder.build()
+
+        response = _ModbusClient.write_register(
+            self,
+            spec.address, payload[0],
+            skip_encode=True,
+            unit=spec.unit_id)
+
+        return response
+
+    # =========================================================================
+    @error_handle
+    @response_handle
+    def write_multiple_registers(self, command):
+        parser = argument_parser()
+        command = 'write_multiple_registers ' + command
+        spec = parser.parse_args(command.split())
+
+        builder = BinaryPayloadBuilder(byteorder=Endian.Big,
+                                       wordorder=Endian.Big)
+        for func, value in spec.values:
+            getattr(builder, func)(value)
+        payload = builder.build()
+
+        response = _ModbusClient.write_registers(
+            self, spec.address, payload, skip_encode=True,  unit=spec.unit_id)
+        return response
 
 
 ###############################################################################
@@ -177,11 +301,11 @@ def get_json_data_with_template(data: bytes, template):
     for i, t in enumerate(template):
         try:
             record = make_record(i, data, t)
-            result['data'][t['name']] = dict(zip(key, record))
+            result['data'][t['key']] = dict(zip(key, record))
         except struct.error:
             note = 'item exists but no data'
             record = [f'{t["type"]}'] + [None] * 3 + [note]
-            result['data'][t['name']] = dict(zip(key, record))
+            result['data'][t['key']] = dict(zip(key, record))
             continue
 
     return result
@@ -194,130 +318,5 @@ def request_response_messages(command, data: bytes, address=''):
 
 
 ###############################################################################
-def error_handle(f):
-    @functools.wraps(f)
-    def func(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except exceptions.ConnectionException as e:
-            print('** Error: ', e)
-        except ExceptionResponse as e:
-            print('** Error: ', e)
-        except Exception:
-            import traceback
-            traceback.print_exc()
-            return
+__all__ = ['get_json_data_with_template', ]
 
-    return func
-
-
-###############################################################################
-def response_handle(f):
-    @functools.wraps(f)
-    def func(*args, **kwargs):
-        response = f(*args, **kwargs)
-        data = response.encode()
-        if 1 == len(data):
-            raise ExceptionResponse(
-                ModbusExceptions.decode(int.from_bytes(data, 'big')))
-        return data[1:]
-
-    return func
-
-
-###############################################################################
-@error_handle
-@response_handle
-def read_input_registers(argspec):
-    with ModbusClient(host=argspec.ip, port=argspec.port) as client:
-        response = client.read_input_registers(argspec.address, argspec.count)
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def read_holding_register(argspec):
-    with ModbusClient(host=argspec.ip, port=argspec.port) as client:
-        response = client.read_holding_registers(argspec.address,
-                                                 argspec.count)
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def read_discrete_inputs(argspec):
-    with ModbusClient(host=argspec.ip, port=argspec.port, ) as client:
-        response = client.read_discrete_inputs(argspec.address, argspec.count)
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def read_coils(argspec):
-    with ModbusClient(host=argspec.ip, port=argspec.port) as client:
-        response = client.read_coils(argspec.address, argspec.count)
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def write_single_coil(argspec):
-    with ModbusClient(host=argspec.ip, port=argspec.port) as client:
-        response = client.write_coil(argspec.address, argspec.value)
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def write_multiple_coils(argspec):
-    with ModbusClient(host=argspec.ip, port=argspec.port, ) as client:
-        response = client.write_coils(
-            argspec.address, list(map(int, argspec.values)))
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def write_single_register(argspec):
-    builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
-    for func, value in argspec.values[:1]:
-        getattr(builder, func)(value)
-    payload = builder.build()
-
-    with ModbusClient(host=argspec.ip, port=argspec.port, ) as client:
-        response = client.write_register(
-            argspec.address, payload[0], skip_encode=True,
-            unit=argspec.unit_id)
-    return response
-
-
-###############################################################################
-@error_handle
-@response_handle
-def write_multiple_registers(argspec):
-    builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
-    for func, value in argspec.values:
-        getattr(builder, func)(value)
-    payload = builder.build()
-
-    with ModbusClient(host=argspec.ip, port=argspec.port) as client:
-        response = client.write_registers(
-            argspec.address, payload, skip_encode=True, unit=argspec.unit_id)
-    return response
-
-
-
-
-
-###############################################################################
-__all__ = ['read_coils', 'read_discrete_inputs', 'get_json_data_with_template',
-           'read_holding_register',
-           'read_input_registers', 'write_single_coil',
-           'write_single_register', 'write_multiple_coils',
-           'write_multiple_registers']

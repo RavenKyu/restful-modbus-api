@@ -5,9 +5,25 @@ from collections import deque
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from restful_modbus_api.utils.logger import get_logger
-from restful_modbus_api.modbus_handler import *
-from restful_modbus_api.modbus_handler.arugment_parser import run as \
-    modbus_client
+from restful_modbus_api.modbus_handler import get_json_data_with_template
+
+CONTEXT = '''
+from restful_modbus_api.modbus_handler import ModbusClient
+
+def _main():
+    with ModbusClient('{ip}', {port}) as client:
+        read_input_registers = client.read_input_registers
+        read_holding_registers = client.read_holding_registers
+        read_discrete_inputs = client.read_discrete_inputs
+        read_coils = client.read_coils
+        write_single_coil = client.write_single_coil
+        write_multiple_coils = client.write_multiple_coils
+        write_single_register = client.write_single_register
+        write_multiple_registers = client.write_multiple_registers
+    
+{code}
+    return main()    
+'''
 
 
 ###############################################################################
@@ -29,7 +45,6 @@ class Collector:
         self.data['__last_fetch'] = dict()
         self.queue = deque(maxlen=60)
 
-
     # =========================================================================
     def add_job_schedule_by_template_file(self, file_path):
         with open(file_path, 'r') as f:
@@ -39,21 +54,27 @@ class Collector:
             seconds = templates[key]['seconds']
             code = templates[key]['code']
             template = templates[key]['template']
-            self.add_job_schedule(code, name, seconds, template)
 
+            ip = templates[key]['comm']['setting']['host']
+            port = templates[key]['comm']['setting']['port']
+            self.add_job_schedule(code, name, seconds, template, ip, port)
 
     # =========================================================================
     @staticmethod
-    def get_python_module(code, name):
+    def get_python_module(code, name, ip, port):
+        def indent(text, amount, ch=' '):
+            import textwrap
+            return textwrap.indent(text, amount * ch)
+
+        code = CONTEXT.format(ip=ip, port=port, code=indent(code, 4))
         module = types.ModuleType(name)
         exec(code, module.__dict__)
-        module.run = modbus_client
         return module
 
     # =========================================================================
     def add_job_schedule(self, code: str, name: str, interval_second: int,
-                         template):
-        module = self.get_python_module(code, name)
+                         template, ip, port):
+        module = self.get_python_module(code, name, ip, port)
         parameters = name, module, template
 
         self.scheduler.add_job(
@@ -72,7 +93,7 @@ class Collector:
 
     # =========================================================================
     def request_data(self, name, module, template, **kwargs):
-        data = module.main()
+        data = module._main()
         result = get_json_data_with_template(data, template=template)
         result['hex'] = data.hex(' ')
 
@@ -95,20 +116,4 @@ class Collector:
             result.append(
                 dict(id=job.id, code=code, template=template))
         return result
-
-    # =========================================================================
-    def routine(self):
-        # 설정 정보 가져오기
-        # 설정 정보를 이용하여 Process 생성
-        while len(self.queue):
-            time.sleep(0.1)
-            try:
-                d = self.queue.pop()
-                self.api.push_data(*d)
-            except Exception as e:
-                self.logger.exception(str(e))
-                continue
-            finally:
-                pass
-        return
 
