@@ -1,4 +1,4 @@
-FROM python:3.7.7-alpine3.11
+FROM python:3.8.6-alpine3.12
 
 # ==============================================================================
 # 타임존 설정
@@ -30,7 +30,5 @@ RUN rm -rf /src
 RUN apk del .build-deps
 
 EXPOSE 5000
-
-VOLUME ["/root"]
 
 ENTRYPOINT ["restful-modbus-api"]

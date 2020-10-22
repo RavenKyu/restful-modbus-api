@@ -6,6 +6,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: restful-modbus-api
+    ports:
+      - 5000:5000
+    volumes:
+      - .:/root
+    command: |
+      -a 0.0.0.0 -p 5000 -t tests/sample_template.yml
+
 
   dummy-modbus-server:
     image: dummy-modubs-server:latest
@@ -13,5 +20,9 @@ services:
       context: .
       dockerfile: dummy-modbus-server/Dockerfile
     container_name: dummy-modbus-server
+    ports:
+      - 502:502
+    command: |
+      -a 0.0.0.0 -p 502
 
 

@@ -38,7 +38,7 @@ class Collector:
         self.device_info = None
         self.job_order_queue = None
 
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = BackgroundScheduler(timezone="Asia/Seoul")
         self.scheduler.start()
 
         self.data = dict()

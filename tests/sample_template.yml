@@ -1,16 +1,18 @@
 ---
-test:
+test-1:
   comm:
     type: tcp
     setting:
-      host: localhost
+      host: dummy-modbus-server
       port: 502
 
   seconds: 3
   code: |
     def main():
-        a = read_holding_registers('--address 40001 --count 4')
-        b = read_holding_registers('--address 40006 --count 1')
+        a = read_holding_registers('-a 40001 -c 4')
+        b = read_holding_registers('-a 40017 -c 2')
+        b = read_holding_registers('-a 40019 -c 2')
+        print(a)
         return a + b
   template:
     - key: data01
@@ -18,26 +20,31 @@ test:
       type: B64_STRING
 
     - key: data02
-      note: wrong value
+      note: unsigned integer value
+      type: B16_UINT
+
+    - key: data03
+      note: integer value
       type: B16_INT
 
-test2:
+test-2:
   comm:
     type: tcp
     setting:
-      host: localhost
+      host: dummy-modbus-server
       port: 502
 
   seconds: 3
   code: |
     def main():
-        a = read_holding_registers('--address 40019 --count 1')
-        return a
+        a = read_holding_registers('--address 40028 --count 2')
+        b = read_holding_registers('--address 40030 --count 1')
+        return a + b
   template:
     - key: data01
       note:
-      type: B8_INT
+      type: B32_FLOAT
 
     - key: data02
       note:
-      type: B8_UINT
+      type: B16_FLOAT
