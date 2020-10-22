@@ -69,7 +69,7 @@ class ModbusClient(_ModbusClient):
         parser = argument_parser()
         command = 'read_holding_register ' + command
         spec = parser.parse_args(command.split())
-        response = _ModbusClient.read_input_registers(
+        response = _ModbusClient.read_holding_registers(
             self, spec.address, spec.count)
         return response
 
