@@ -52,13 +52,28 @@ class Schedules(Resource):
     @result
     def post(self):
         d = request.get_json(force=True)
-        _id, code, template, seconds = operator.itemgetter(
-            'id', 'code', 'template', 'seconds')(d)
+        _id, code, template, seconds, description, comm, use = \
+            operator.itemgetter(
+                'id',
+                'code',
+                'template',
+                'seconds',
+                'description',
+                'comm',
+                'use')(d)
+
         if _id in [x['id'] for x in collector.get_schedule_jobs()]:
             logger.error(f'{_id} is already in the scheduler.')
             # todo: Raise here
             return
-        collector.add_job_schedule(code, _id, seconds, template)
+
+        comm_type = comm['type']
+        host = comm['setting']['host']
+        port = comm['setting']['port']
+
+        args = [code, _id, seconds, template, host, port, description, use,
+                comm_type]
+        collector.add_job_schedule(*args)
         return None
 
     @result

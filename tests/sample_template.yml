@@ -1,9 +1,11 @@
 ---
 test-1:
+  use: True
+  description: Test
   comm:
     type: tcp
     setting:
-      host: dummy-modbus-server
+      host: localhost
       port: 502
 
   seconds: 3
@@ -12,7 +14,6 @@ test-1:
         a = read_holding_registers('-a 40001 -c 4')
         b = read_holding_registers('-a 40017 -c 2')
         b = read_holding_registers('-a 40019 -c 2')
-        print(a)
         return a + b
   template:
     - key: data01
@@ -28,10 +29,12 @@ test-1:
       type: B16_INT
 
 test-2:
+  use: True
+  description: Test
   comm:
     type: tcp
     setting:
-      host: dummy-modbus-server
+      host: localhost
       port: 502
 
   seconds: 3

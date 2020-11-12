@@ -1,5 +1,5 @@
 import types
-import time
+import operator
 import yaml
 from collections import deque
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -51,13 +51,25 @@ class Collector:
             templates = yaml.safe_load(f)
         for key in templates:
             name = key
-            seconds = templates[key]['seconds']
-            code = templates[key]['code']
-            template = templates[key]['template']
+            seconds, code, template, use, description = operator.itemgetter(
+                'seconds', 'code', 'template', 'use', 'description'
+            )(templates[key])
 
-            ip = templates[key]['comm']['setting']['host']
-            port = templates[key]['comm']['setting']['port']
-            self.add_job_schedule(code, name, seconds, template, ip, port)
+            comm_type = templates[key]['comm']['type']
+            host, port = operator.itemgetter('host', 'port')(
+                templates[key]['comm']['setting'])
+
+            kw_argument = dict(code=code,
+                               name=name,
+                               interval_second=seconds,
+                               template=template,
+                               ip=host,
+                               port=port,
+                               description=description,
+                               use=use,
+                               comm_type=comm_type)
+
+            self.add_job_schedule(**kw_argument)
 
     # =========================================================================
     @staticmethod
@@ -73,13 +85,23 @@ class Collector:
 
     # =========================================================================
     def add_job_schedule(self, code: str, name: str, interval_second: int,
-                         template, ip, port):
+                         template, ip, port, description, use, comm_type):
+
         module = self.get_python_module(code, name, ip, port)
         parameters = name, module, template
-
-        self.scheduler.add_job(
-            self.request_data, args=parameters, kwargs={'code': code},
-            id=name, trigger='interval', seconds=interval_second)
+        comm = {'comm_typ': comm_type, 'setting': {'host': ip, 'port': port}}
+        self.scheduler.pause()
+        try:
+            self.scheduler.add_job(
+                self.request_data,
+                args=parameters,
+                kwargs={'code': code,
+                        'use': use,
+                        'description': description,
+                        'comm': comm},
+                id=name, trigger='interval', seconds=interval_second)
+        finally:
+            self.scheduler.resume()
 
     # =========================================================================
     def remove_job_schedule(self, _id: str):
@@ -112,8 +134,10 @@ class Collector:
         result = list()
         for job in jobs:
             _, _, template = job.args
-            code = job.kwargs['code']
+            code, description, use, comm = operator.itemgetter(
+                'code', 'description', 'use', 'comm')(job.kwargs)
             result.append(
-                dict(id=job.id, code=code, template=template))
+                dict(id=job.id, code=code, template=template,
+                     description=description, use=use, comm=comm))
         return result
 
