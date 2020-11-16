@@ -98,7 +98,8 @@ class Collector:
                 kwargs={'code': code,
                         'use': use,
                         'description': description,
-                        'comm': comm},
+                        'comm': comm,
+                        'interval_second': interval_second},
                 id=name, trigger='interval', seconds=interval_second)
         finally:
             self.scheduler.resume()
@@ -134,10 +135,12 @@ class Collector:
         result = list()
         for job in jobs:
             _, _, template = job.args
-            code, description, use, comm = operator.itemgetter(
-                'code', 'description', 'use', 'comm')(job.kwargs)
+            code, description, use, comm, seconds = operator.itemgetter(
+                'code', 'description', 'use', 'comm',
+                'interval_second')(job.kwargs)
             result.append(
                 dict(id=job.id, code=code, template=template,
-                     description=description, use=use, comm=comm))
+                     description=description, use=use, comm=comm,
+                     seconds=seconds))
         return result
 
