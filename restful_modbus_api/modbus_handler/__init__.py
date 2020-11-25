@@ -161,7 +161,7 @@ class ModbusClient(_ModbusClient):
         payload = builder.build()
 
         response = _ModbusClient.write_registers(
-            self, spec.address, payload, skip_encode=True,  unit=spec.unit_id)
+            self, spec.address, payload, skip_encode=True, unit=spec.unit_id)
         return response
 
 
@@ -293,6 +293,19 @@ def make_record(index, data, template):
         d = d[0]
     record.append(d)
     record.append(template['note'])
+
+    # scale
+    scale = template['scale']
+    record.append(scale)
+
+    # scaled value
+    condition = [isinstance(d, (int, float)),
+                 isinstance(scale, (int, float)),
+                 scale != 0]
+    if all(condition):
+        record.append(d * scale)
+    else:
+        record.append(d)
     return record
 
 
@@ -304,7 +317,7 @@ def get_json_data_with_template(data: bytes, template):
     result['datetime'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     result['data'] = dict()
-    key = ['type', 'hex', 'value', 'note']
+    key = ['type', 'hex', 'value', 'note', 'scale', 'scaled_value']
 
     for i, t in enumerate(template):
         try:
@@ -327,4 +340,3 @@ def request_response_messages(command, data: bytes, address=''):
 
 ###############################################################################
 __all__ = ['get_json_data_with_template', ]
-
