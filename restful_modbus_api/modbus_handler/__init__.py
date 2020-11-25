@@ -10,6 +10,7 @@ import functools
 from pymodbus.pdu import ModbusExceptions
 from pymodbus.client.sync import ModbusTcpClient as _ModbusClient
 from pymodbus.payload import BinaryPayloadBuilder, BinaryPayloadDecoder
+from pymodbus.client.sync import ModbusRtuFramer, ModbusSocketFramer
 from pymodbus.constants import Endian
 from pymodbus import exceptions
 from restful_modbus_api.modbus_handler.arugment_parser import \
@@ -18,8 +19,15 @@ from restful_modbus_api.modbus_handler.arugment_parser import \
 
 ###############################################################################
 class ModbusClient(_ModbusClient):
-    def __init__(self, host, port, verbose=0):
-        _ModbusClient.__init__(self, host=host, por=port)
+    def __init__(self, host, port, mode, verbose=0):
+        if mode == 'tcp':
+            framer = ModbusSocketFramer
+        elif mode == 'rtu-over-tcp':
+            framer = ModbusRtuFramer
+        else:
+            raise ValueError(f"'{mode}' is not supported.")
+
+        _ModbusClient.__init__(self, host=host, port=port, framer=framer)
 
     # =========================================================================
     def response_handle(f):

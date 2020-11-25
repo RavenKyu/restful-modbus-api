@@ -13,9 +13,8 @@ services:
     command: |
       -a 0.0.0.0 -p 5000 -t tests/sample_template.yml
 
-
   dummy-modbus-server:
-    image: dummy-modubs-server:latest
+    image: dummy-modbus-server:latest
     build:
       context: .
       dockerfile: dummy-modbus-server/Dockerfile
@@ -25,4 +24,13 @@ services:
     command: |
       -a 0.0.0.0 -p 502
 
-
+  dummy-modbus-rtu-over-tcp-server:
+    image: dummy-modbus-rtu-over-tcp-server:latest
+    build:
+      context: .
+      dockerfile: dummy-modbus-rtu-over-tcp-server/Dockerfile
+    container_name: dummy-modbus-rtu-over-tcp-server
+    ports:
+      - 1502:502
+    command: |
+      -a 0.0.0.0 -p 502

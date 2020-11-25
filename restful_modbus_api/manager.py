@@ -11,7 +11,7 @@ CONTEXT = '''
 from restful_modbus_api.modbus_handler import ModbusClient
 
 def _main():
-    with ModbusClient('{ip}', {port}) as client:
+    with ModbusClient('{ip}', {port}, '{mode}') as client:
         read_input_registers = client.read_input_registers
         read_holding_registers = client.read_holding_registers
         read_discrete_inputs = client.read_discrete_inputs
@@ -73,12 +73,13 @@ class Collector:
 
     # =========================================================================
     @staticmethod
-    def get_python_module(code, name, ip, port):
+    def get_python_module(code, name, ip, port, mode):
         def indent(text, amount, ch=' '):
             import textwrap
             return textwrap.indent(text, amount * ch)
 
-        code = CONTEXT.format(ip=ip, port=port, code=indent(code, 4))
+        code = CONTEXT.format(
+            ip=ip, port=port, mode=mode, code=indent(code, 4))
         module = types.ModuleType(name)
         exec(code, module.__dict__)
         return module
@@ -87,7 +88,7 @@ class Collector:
     def add_job_schedule(self, code: str, name: str, interval_second: int,
                          template, ip, port, description, use, comm_type):
 
-        module = self.get_python_module(code, name, ip, port)
+        module = self.get_python_module(code, name, ip, port, comm_type)
         parameters = name, module, template
         comm = {'comm_typ': comm_type, 'setting': {'host': ip, 'port': port}}
         self.scheduler.pause()
