@@ -29,12 +29,26 @@ class ModbusClient(_ModbusClient):
 
         _ModbusClient.__init__(self, host=host, port=port, framer=framer)
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_tb:
+            import traceback
+            traceback.print_exception(exc_type, exc_val, exc_tb)
+        return
+
     # =========================================================================
     def response_handle(f):
         @functools.wraps(f)
         def func(*args, **kwargs):
             response = f(*args, **kwargs)
+            if response.isError():
+                if isinstance(response, exceptions.ModbusIOException):
+                    # Probably, disconnected to the Modbus Server.
+                    raise ExceptionResponse(response.message)
+                else:
+                    raise ExceptionResponse(ModbusExceptions.decode(
+                        int.from_bytes(response.encode(), 'big')))
             data = response.encode()
+
             if 1 == len(data):
                 raise ExceptionResponse(
                     ModbusExceptions.decode(int.from_bytes(data, 'big')))
@@ -56,6 +70,11 @@ class ModbusClient(_ModbusClient):
                 import traceback
                 traceback.print_exc()
                 return
+            finally:
+                this = args[0]
+                if this.is_socket_open():
+                    this.socket.shutdown(1)
+                    this.close()
 
         return func
 
