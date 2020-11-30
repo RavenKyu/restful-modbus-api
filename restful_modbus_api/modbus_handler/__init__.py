@@ -62,19 +62,20 @@ class ModbusClient(_ModbusClient):
         def func(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
-            except exceptions.ConnectionException as e:
+            except (exceptions.ConnectionException, ExceptionResponse) as e:
                 print('** Error: ', e)
-            except ExceptionResponse as e:
-                print('** Error: ', e)
-            except Exception:
-                import traceback
-                traceback.print_exc()
-                return
-            finally:
                 this = args[0]
                 if this.is_socket_open():
                     this.socket.shutdown(1)
                     this.close()
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                this = args[0]
+                if this.is_socket_open():
+                    this.socket.shutdown(1)
+                    this.close()
+                return
 
         return func
 
