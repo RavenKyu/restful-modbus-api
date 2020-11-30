@@ -345,7 +345,7 @@ def get_json_data_with_template(data: bytes, template):
             result['data'][t['key']] = dict(zip(key, record))
         except struct.error:
             note = 'item exists but no data'
-            record = [f'{t["type"]}'] + [None] * 3 + [note]
+            record = [f'{t["type"]}'] + [None] * 2 + [note] + [None] * 2
             result['data'][t['key']] = dict(zip(key, record))
             continue
 
