@@ -87,7 +87,7 @@ class ModbusClient(_ModbusClient):
         command = 'read_input_register ' + command
         spec = parser.parse_args(command.split())
         response = _ModbusClient.read_input_registers(
-            self, spec.address, spec.count)
+            self, spec.address, spec.count, unit=spec.unit_id)
         return response
 
     # =========================================================================
@@ -98,7 +98,7 @@ class ModbusClient(_ModbusClient):
         command = 'read_holding_register ' + command
         spec = parser.parse_args(command.split())
         response = _ModbusClient.read_holding_registers(
-            self, spec.address, spec.count)
+            self, spec.address, spec.count, unit=spec.unit_id)
         return response
 
     # =========================================================================
@@ -109,7 +109,7 @@ class ModbusClient(_ModbusClient):
         command = 'read_discrete_inputs ' + command
         spec = parser.parse_args(command.split())
         response = _ModbusClient.read_discrete_inputs(
-            self, spec.address, spec.count)
+            self, spec.address, spec.count, unit=spec.unit_id)
         return response
 
     # =========================================================================
@@ -120,7 +120,7 @@ class ModbusClient(_ModbusClient):
         command = 'read_coils ' + command
         spec = parser.parse_args(command.split())
         response = _ModbusClient.read_coils(
-            self, spec.address, spec.count)
+            self, spec.address, spec.count, unit=spec.unit_id)
         return response
 
     # =========================================================================
@@ -131,7 +131,7 @@ class ModbusClient(_ModbusClient):
         command = 'write_single_coil ' + command
         spec = parser.parse_args(command.split())
         response = _ModbusClient.write_coil(
-            self, spec.address, spec.value)
+            self, spec.address, spec.count, unit=spec.unit_id)
         return response
 
     # =========================================================================
@@ -142,7 +142,7 @@ class ModbusClient(_ModbusClient):
         command = 'write_multiple_coils ' + command
         spec = parser.parse_args(command.split())
         response = _ModbusClient.write_coils(
-            self, spec.address, list(map(int, spec.values)))
+            self, spec.address, list(map(int, spec.values)), unit=spec.unit_id)
         return response
 
     # =========================================================================
