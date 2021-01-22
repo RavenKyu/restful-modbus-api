@@ -1,4 +1,3 @@
-import operator
 import json
 from functools import wraps
 from collections import deque
@@ -8,6 +7,10 @@ from flask_restx import Resource, Api, reqparse
 from werkzeug.exceptions import (BadRequest, NotFound)
 from restful_modbus_api.utils.logger import get_logger
 from restful_modbus_api.manager import Collector
+from restful_modbus_api.manager import (
+    ExceptionResponse,
+    ExceptionScheduleReduplicated
+)
 
 app = Flask(__name__)
 api = Api(app)
@@ -24,6 +27,8 @@ def result(f):
         try:
             r = f(*args, **kwargs)
             return jsonify(r)
+        except ExceptionScheduleReduplicated as e:
+            api.abort(400, str(e))
         except NotFound as e:
             api.abort(404, str(e))
         except Exception as e:
@@ -40,45 +45,18 @@ def get_column_names(model):
     return columns
 
 
-@api.route('/devices')
-class Device(Resource):
-    @result
-    def get(self):
-        return list(collector.get_schedule_jobs())
-
-
+###############################################################################
 @api.route('/schedules')
 class Schedules(Resource):
     @result
     def post(self):
         d = request.get_json(force=True)
-        _id, code, template, seconds, description, comm, use = \
-            operator.itemgetter(
-                'id',
-                'code',
-                'template',
-                'seconds',
-                'description',
-                'comm',
-                'use')(d)
-
-        if _id in [x['id'] for x in collector.get_schedule_jobs()]:
-            logger.error(f'{_id} is already in the scheduler.')
-            # todo: Raise here
-            return
-
-        comm_type = comm['type']
-        host = comm['setting']['host']
-        port = comm['setting']['port']
-
-        args = [code, _id, seconds, template, host, port, description, use,
-                comm_type]
-        collector.add_job_schedule(*args)
+        collector.add_job_schedule_by_api(d)
         return None
 
     @result
     def get(self):
-        return list(collector.get_schedule_jobs())
+        return collector.get_schedule_jobs()
 
 
 ###############################################################################
@@ -87,59 +65,74 @@ schedule_id_parser.add_argument(
     'seconds', type=int, help="interval time", store_missing=False)
 
 
-@api.route('/schedules/<string:_id>')
-class Schedules(Resource):
+@api.route('/schedules/<string:schedule_name>')
+class SchedulesDetail(Resource):
     @result
-    def delete(self, _id):
-        if _id not in [x['id'] for x in collector.get_schedule_jobs()]:
-            logger.error(f'{_id} is not in the scheduler.')
+    def delete(self, schedule_name):
+        if schedule_name not in [x['id'] for x in collector.get_schedule_jobs()]:
+            logger.error(f'{schedule_name} is not in the scheduler.')
             return
-        return collector.remove_job_schedule(_id)
+        return collector.remove_job_schedule(schedule_name)
 
-    def patch(self, _id):
+    def patch(self, schedule_name):
+        if schedule_name not in [x['id'] for x in collector.get_schedule_jobs()]:
+            logger.error(f'{schedule_name} is not in the scheduler.')
+            return
+
         args = schedule_id_parser.parse_args()
-        collector.modify_job_schedule(_id, args['seconds'])
+        collector.modify_job_schedule(
+            schedule_name, args['trigger'], args['trigger_args'])
         return
 
 
 ###############################################################################
-device_id_parser = reqparse.RequestParser()
-device_id_parser.add_argument(
+schedule_name_parser = reqparse.RequestParser()
+schedule_name_parser.add_argument(
     'last_fetch', action='store', help="interval time")
 
 
-@api.route('/devices/<string:device_name>')
-class Device(Resource):
+@api.route('/schedules/<string:schedule_name>/data')
+class ScheduleData(Resource):
     @result
-    def post(self, device_name):
+    def post(self, schedule_name):
         d = request.get_json(force=True)
         d = json.loads(d)
-        if device_name not in collector.data:
-            collector.data[device_name] = deque(maxlen=60)
-        collector.data[device_name].append(d)
+        if schedule_name not in collector.data:
+            collector.data[schedule_name] = deque(maxlen=60)
+        collector.data[schedule_name].append(d)
         return None
 
     @result
-    def get(self, device_name):
-        args = device_id_parser.parse_args()
-        if device_name not in collector.data['__last_fetch'] or \
-                device_name not in collector.data:
+    def get(self, schedule_name):
+        args = schedule_name_parser.parse_args()
+        if schedule_name not in collector.data['__last_fetch'] or \
+                schedule_name not in collector.data:
             raise NotFound(
-                f'No data for {device_name}. '
+                f'No data for {schedule_name}. '
                 f'may not be collecting the data now.')
         if args['last_fetch'] is not None:
-            data = collector.data['__last_fetch'][device_name]
+            data = collector.data['__last_fetch'][schedule_name]
             return data.pop() if data else None
-        return list(collector.data[device_name])
+        return list(collector.data[schedule_name])
 
     @result
-    def delete(self, device_name):
-        print(device_name)
+    def delete(self, schedule_name):
+        print(schedule_name)
 
 
 ###############################################################################
-@api.route('/devices/<string:device_name>/<int:index>')
-class Device(Resource):
+@api.route('/schedules/<string:schedule_name>/data/<int:index>')
+class ScheduleDataIndex(Resource):
     @result
-    def get(self, device_name, index):
-        return list(collector.data[device_name])[index]
+    def get(self, schedule_name, index):
+        return list(collector.data[schedule_name])[index]
+
+
+###############################################################################
+@api.route('/procedure_call')
+class RunDeviceProcedureCall(Resource):
+    @result
+    def post(self):
+        d = request.get_json(force=True)
+        data = collector.execute_script_after_finishing(d)
+        return data
