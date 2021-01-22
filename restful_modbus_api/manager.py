@@ -32,6 +32,11 @@ class ExceptionResponse(Exception):
 
 
 ###############################################################################
+class ExceptionTemplateNotFound(Exception):
+    pass
+
+
+###############################################################################
 class Collector:
     def __init__(self):
         self.logger = get_logger('collector')
@@ -41,6 +46,8 @@ class Collector:
         self.scheduler = BackgroundScheduler(timezone="Asia/Seoul")
         self.scheduler.start()
 
+        self.templates = dict()
+
         self.data = dict()
         self.data['__last_fetch'] = dict()
         self.queue = deque(maxlen=60)
@@ -48,16 +55,26 @@ class Collector:
     # =========================================================================
     def add_job_schedule_by_template_file(self, file_path):
         with open(file_path, 'r') as f:
-            templates = yaml.safe_load(f)
-        for key in templates:
-            name = key
-            seconds, code, template, use, description = operator.itemgetter(
-                'seconds', 'code', 'template', 'use', 'description'
-            )(templates[key])
+            data = yaml.safe_load(f)
 
-            comm_type = templates[key]['comm']['type']
+        for key in data:
+            name = key
+            seconds, templates, default_template, use, description = operator.itemgetter(
+                'seconds', 'templates', 'default_template', 'use', 'description'
+            )(data[key])
+
+            self.templates[name] = templates
+            if not default_template:
+                return
+            if default_template not in templates:
+                raise ExceptionTemplateNotFound(
+                    f'{default_template} is not in the templates.')
+
+            code, template = operator.itemgetter(
+                'code', 'template')(templates[default_template])
+            comm_type = data[key]['comm']['type']
             host, port = operator.itemgetter('host', 'port')(
-                templates[key]['comm']['setting'])
+                data[key]['comm']['setting'])
 
             kw_argument = dict(code=code,
                                name=name,
