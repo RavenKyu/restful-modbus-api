@@ -6,6 +6,7 @@ import struct
 import json
 import datetime
 import functools
+import itertools
 
 from pymodbus.pdu import ModbusExceptions
 from pymodbus.client.sync import ModbusTcpClient as _ModbusClient
@@ -80,6 +81,31 @@ class ModbusClient(_ModbusClient):
         return func
 
     # =========================================================================
+    def bit8_boolean(f):
+        @functools.wraps(f)
+        def func(*args, **kwargs):
+            """
+            bytes to binary in list
+            b'\x15\x11\x11'
+            to
+            b'\x01\x00\x01\x00\x01\x00\x00\x00'
+            b'\x01\x00\x00\x00\x01\x00\x00\x00'
+            b'\x01\x00\x00\x00\x01\x00\x00\x00'
+            """
+            r = f(*args, **kwargs)
+            data = list(r)
+            data = map(lambda x: f'{x:08b}', data)
+            data = map(list, data)
+            data = list([list(map(int, x)) for x in data])
+            data = [list(map(lambda x: int.to_bytes(x, 1, 'big'), x))
+                    for x in data]
+            data = itertools.chain.from_iterable(data)
+            data = list(data)
+            data.reverse()
+            return b''.join(data)
+        return func
+
+    # =========================================================================
     @error_handle
     @response_handle
     def read_input_registers(self, command):
@@ -114,6 +140,7 @@ class ModbusClient(_ModbusClient):
 
     # =========================================================================
     @error_handle
+    @bit8_boolean
     @response_handle
     def read_coils(self, command):
         parser = argument_parser()
@@ -295,8 +322,8 @@ def make_record(index, data, template):
 
     record.append(data_type.name)
     if data_type is data_type.BIT1_BOOLEAN:
+        d = int(data[index][0])
         record.append(data[index][0])
-        d = bool(data[index][0])
     else:
         record.append(space(data[index][0], 4))
         d = struct.unpack(fmt, bytes.fromhex(data[index][0]))
@@ -308,7 +335,7 @@ def make_record(index, data, template):
     elif data_type in (DataType.BIT8,):
         d = f'{d[0]:07b}'
     elif data_type in (DataType.BIT1_BOOLEAN,):
-        pass
+        d = bool(d)
     else:
         d = d[0]
     record.append(d)
