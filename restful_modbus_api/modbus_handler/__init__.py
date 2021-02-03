@@ -30,11 +30,17 @@ class ModbusClient(_ModbusClient):
 
         _ModbusClient.__init__(self, host=host, port=port, framer=framer)
 
+    # =========================================================================
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb:
             import traceback
             traceback.print_exception(exc_type, exc_val, exc_tb)
+        _ModbusClient.close(self)
         return
+
+    # =========================================================================
+    def close(self):
+        pass
 
     # =========================================================================
     def response_handle(f):
@@ -68,14 +74,14 @@ class ModbusClient(_ModbusClient):
                 this = args[0]
                 if this.is_socket_open():
                     this.socket.shutdown(1)
-                    this.close()
+                    _ModbusClient.close(this)
             except Exception:
                 import traceback
                 traceback.print_exc()
                 this = args[0]
                 if this.is_socket_open():
                     this.socket.shutdown(1)
-                    this.close()
+                    _ModbusClient.close(this)
                 return
 
         return func
@@ -259,19 +265,6 @@ def get_template(name):
         import traceback
         traceback.print_exc()
         return None
-
-
-###############################################################################
-def get_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('10.255.255.255', 1))
-        ip = s.getsockname()[0]
-    except Exception:
-        ip = '127.0.0.1'
-    finally:
-        s.close()
-    return ip
 
 
 ###############################################################################
