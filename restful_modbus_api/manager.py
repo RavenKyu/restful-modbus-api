@@ -1,9 +1,9 @@
 import types
 import operator
-import yaml
 import time
 from collections import deque
 from apscheduler.schedulers.background import BackgroundScheduler
+
 
 from restful_modbus_api.utils.logger import get_logger
 from restful_modbus_api.modbus_handler import get_json_data_with_template
@@ -37,17 +37,13 @@ class ExceptionResponse(Exception):
 
 
 ###############################################################################
-class ExceptionTemplateNotFound(Exception):
-    pass
-
-
-###############################################################################
-class ExceptionScheduleNotFound(Exception):
+class NotFound(Exception):
     pass
 
 ###############################################################################
 class ExceptionScheduleReduplicated(Exception):
     pass
+
 
 ###############################################################################
 class Collector:
@@ -75,31 +71,24 @@ class Collector:
         return False
 
     # =========================================================================
-    def add_job_schedule_by_template_file(self, file_path):
-        with open(file_path, 'r') as f:
-            data = yaml.safe_load(f)
+    def add_job_schedules(self, schedule_templates: list):
+        for schedule_template in schedule_templates:
+            schedule_name, trigger = operator.itemgetter(
+                'schedule_name', 'trigger')(schedule_template)
+            schedule_names = [x['schedule_name'] for x in
+                              self.get_schedule_jobs()]
+            if schedule_name in schedule_names:
+                msg = f'The schedule name \'{schedule_name}\' is already assigned.'
+                self.logger.error(msg)
+                raise ExceptionScheduleReduplicated(msg)
 
-        for key in data:
-            self.templates[key] = data[key]
-            trigger_type = data[key]['trigger']['type']
-            trigger_setting = data[key]['trigger']['setting']
-            self.add_job_schedule(key, trigger_type, trigger_setting)
+            self.templates[schedule_name] = schedule_template
+            # self.templates[schedule_name]['templates'] = dict()
+            self._add_job_schedule(
+                schedule_name,
+                trigger_type=trigger['type'],
+                trigger_setting=trigger['setting'])
 
-    # =========================================================================
-    def add_job_schedule_by_api(self, schedule_data):
-        schedule_name, trigger = operator.itemgetter(
-            'schedule_name', 'trigger')(schedule_data)
-        schedule_names = [x['schedule_name'] for x in self.get_schedule_jobs()]
-        if schedule_name in schedule_names:
-            msg = f'The schedule name \'{schedule_name}\' is already assigned.'
-            self.logger.error(msg)
-            raise ExceptionScheduleReduplicated(msg)
-
-        self.templates[schedule_name] = schedule_data
-        self.templates[schedule_name]['templates'] = dict()
-        self.add_job_schedule(
-            schedule_name,
-            trigger_type=trigger['type'], trigger_setting=trigger['setting'])
 
     # =========================================================================
     @staticmethod
@@ -114,7 +103,30 @@ class Collector:
         return module
 
     # =========================================================================
-    def add_job_schedule(self, key, trigger_type, trigger_setting):
+    def crontab_add_second(self, crontab):
+        cron = [
+            'second',
+            'minute',
+            'hour',
+            'day',
+            'month',
+            'day_of_week']
+
+        crontab = crontab.split()
+        if 6 != len(crontab):
+            raise ValueError(
+                'crontab need 6 values. '
+                'second, minute, hour, day, month, day_of_week')
+        return dict(zip(cron, crontab))
+
+    # =========================================================================
+    def _add_job_schedule(self, key, trigger_type, trigger_setting):
+        if trigger_type == 'crontab' and 'crontab' in trigger_setting:
+            crontab = self.crontab_add_second(trigger_setting['crontab'])
+            trigger_type = 'cron'
+            trigger_setting = {**trigger_setting, **crontab}
+            del trigger_setting['crontab']
+
         arguments = dict(
             func=self.request_data,
             args=(key,),
@@ -129,15 +141,33 @@ class Collector:
             self.scheduler.resume()
 
     # =========================================================================
-    def remove_job_schedule(self, _id: str):
-        self.scheduler.remove_job(_id)
-        del self.data[_id]
+    def remove_job_schedule(self, schedule_name: str):
+        self.get_schedule_job(schedule_name)
+        self.scheduler.remove_job(schedule_name)
+        try:
+            del self.data[schedule_name]
+        except KeyError:
+            # it should be failing to collect data. such as not connecting.
+            pass
+        del self.templates[schedule_name]
         return
 
     # =========================================================================
-    def modify_job_schedule(self, _id, trigger_type, trigger_args):
-        self.scheduler.reschedule_job(
-            _id, trigger=trigger_type, **trigger_args)
+    def modify_job_schedule(self, schedule_name, trigger_type, trigger_args):
+        if trigger_type == 'crontab' and 'crontab' in trigger_args:
+            crontab = self.crontab_add_second(trigger_args['crontab'])
+            trigger = 'cron'
+
+            setting = {**trigger_args, **crontab}
+            del setting['crontab']
+        else:
+            trigger = trigger_type
+            setting = trigger_args
+
+        job = self.scheduler.get_job(schedule_name)
+        job.reschedule(trigger, **setting)
+        self.templates[schedule_name]['trigger'] = dict(
+            type=trigger_type, setting=trigger_args)
 
     # =========================================================================
     def execute_script(self, schedule_name, template_name, **kwargs):
@@ -203,17 +233,74 @@ class Collector:
         return result
 
     # =========================================================================
-    def execute_script_after_finishing(self, value, timeout=3):
+    def get_schedule_job(self, schedule_name):
+        schedules = self.get_schedule_jobs()
+        try:
+            return next(s for s in schedules
+                        if s['schedule_name'] == schedule_name)
+        except StopIteration:
+            raise NotFound(f'{schedule_name} is not in scheduler')
+
+    # =========================================================================
+    def get_templates_in_schedule(self, schedule_name):
+        """
+        return all of template in the schedule
+        :param schedule_name:
+        :return:
+        """
+        if schedule_name not in self.templates:
+            raise NotFound(f'{schedule_name} is not in the schedules')
+        return self.templates[schedule_name]['templates']
+
+    # =========================================================================
+    def get_the_template_in_schedule(self, schedule_name, template_name):
+        """
+        return the template in the schedule
+        :param schedule_name
+        :param template_name
+        :return:
+        """
+        templates = self.get_templates_in_schedule(schedule_name)
+        if template_name not in templates:
+            raise NotFound(f'{template_name} is not in the {schedule_name}')
+        return self.templates[schedule_name]['templates'][template_name]
+
+    # =========================================================================
+    def get_all_data(self, schedule_name):
+        """
+        return all of collected data in the queue of the schedule job
+        :param schedule_name:
+        :return:
+        """
+        if schedule_name not in self.data:
+            raise NotFound(
+                f'{schedule_name} is not in the data store for scheduler. or '
+                f'even It may not have started the first collecting yet.')
+        return list(self.data[schedule_name])
+
+    # =========================================================================
+    def get_last_fetch_data(self, schedule_name):
+        """
+        return all of collected data in the queue of the schedule job
+        :param schedule_name:
+        :return:
+        """
+        if schedule_name not in self.data['__last_fetch']:
+            raise NotFound(
+                f'{schedule_name} is not in the data store for scheduler. or '
+                f'even It may not have started the first collecting yet.')
+        data = self.data['__last_fetch'][schedule_name]
+        return data.pop() if data else None
+
+    # =========================================================================
+    def execute_script_after_finishing(
+            self, schedule_name, template_name, arguments, timeout=3):
         """
         execute script after finishing script running now
         :return:
         """
-        schedule_name, template_name, arguments = operator.itemgetter(
-            'schedule_name',
-            'template_name',
-            'arguments')(value)
         if schedule_name not in [x.id for x in self.scheduler.get_jobs()]:
-            raise ExceptionScheduleNotFound(
+            raise NotFound(
                 f'The job \'{schedule_name}\' is not found')
         job = self.scheduler.get_job(schedule_name)
         try:

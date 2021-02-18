@@ -1,12 +1,13 @@
 ---
-test-1:
+- schedule_name: test-1
   template_version: 1
   use: True
   description: Test
   comm:
     type: tcp
     setting:
-      host: dummy-modbus-server
+      host: localhost
+#      host: dummy-modbus-server
       port: 502
   trigger:
     type: cron
@@ -75,17 +76,16 @@ test-1:
         type: B16_STRING
         scale: 0.1
 
-
-
-test-2:
+- schedule_name: test-2
   template_version: 1
   use: True
   description: Test
   comm:
     type: rtu-over-tcp
     setting:
-      host: dummy-modbus-rtu-over-tcp-server
-      port: 502
+      host: localhost
+#      host: dummy-modbus-rtu-over-tcp-server
+      port: 1502
   trigger:
     type: interval
     setting:

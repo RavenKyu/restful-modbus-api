@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %}</title>
+</head>
+<body>
+<nav>
+    <a>RESTful MODBUS API</a>
+    <div>
+        <ul>
+            <li><a href="{{ url_fol('schedules') }}">Schedules</a></li>
+            <li><a href="{{ url_fol('templates') }}">Schedules</a></li>
+            <li><a href="{{ url_fol('dashboard') }}">Dashboard</a></li>
+        </ul>
+    </div>
+</nav>
+<div class="container">
+     {% for message in get_flashed_messages() %}
+        <div class="alert alert-danger">{{ message }}</div>
+    {% endfor %}
+    {% block content %} {% endblock %}
+</div>
+
+</body>
+</html>

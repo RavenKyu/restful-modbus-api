@@ -4,6 +4,11 @@ __version__ = '0.9.0'
 
 LONG_DESCRIPTION = open("README.md", "r", encoding="utf-8").read()
 
+tests_require = [
+    'pytest',
+    'pytest-mock',
+]
+
 setup(
     name="restful-modbus-api",
     version=__version__,
@@ -16,12 +21,12 @@ setup(
     license="MIT",
     keywords=["restful", "modbus", "api"],
     install_requires=[
-        # 'flask',
-        'flask_restx',
+        'flask',
         'pymodbus',
         'PyYaml',
         'apscheduler',
     ],
+    tests_require=tests_require,
     packages=find_packages(
         exclude=['dummy-modbus-server', 'dummy-modubs-server.*',
                  'tests', 'tests.*']),

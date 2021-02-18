@@ -1,6 +1,7 @@
 import argparse
-from restful_modbus_api.api.app import app
-from restful_modbus_api.api.app import collector
+import yaml
+from restful_modbus_api.app import app
+from restful_modbus_api.app import collector
 
 
 def argument_parser():
@@ -19,8 +20,12 @@ def main():
     argspec = parser.parse_args()
 
     if argspec.template_file:
+        print(argspec.template_file)
         for t in argspec.template_file:
-            collector.add_job_schedule_by_template_file(t)
+            with open(t, 'r') as f:
+                schedules = yaml.safe_load(f)
+            collector.add_job_schedules(schedules)
+
     app.run(host=argspec.address,
             port=argspec.port,
             debug=argspec.debug)
