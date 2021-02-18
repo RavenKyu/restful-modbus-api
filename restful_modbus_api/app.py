@@ -1,11 +1,10 @@
 from flask import Flask
-from flask import jsonify
 
 from restful_modbus_api.manager import Collector
 from restful_modbus_api.modules.api.v1.api import bp as api_v1
-from restful_modbus_api.modules import NoContent
-from restful_modbus_api.modules.schedules.schedules import bp as module_schedule
-from restful_modbus_api.modules.base.base import bp as module_base
+# from restful_modbus_api.modules import NoContent
+# from restful_modbus_api.modules.schedules.schedules import bp as module_schedule
+# from restful_modbus_api.modules.base.base import bp as module_base
 
 collector = Collector()
 
