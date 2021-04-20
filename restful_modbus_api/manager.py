@@ -12,10 +12,7 @@ CONTEXT = '''
 from restful_modbus_api.modbus_handler import ModbusClient
 
 def _main():
-    with ModbusClient('{comm[setting][host]}', 
-                       {comm[setting][port]}, 
-                       '{comm[type]}') as client:
-                       
+    with ModbusClient('{comm[setting][host]}', {comm[setting][port]}, '{comm[type]}') as client:
         read_input_registers = client.read_input_registers
         read_holding_registers = client.read_holding_registers
         read_discrete_inputs = client.read_discrete_inputs
@@ -25,9 +22,9 @@ def _main():
         write_single_register = client.write_single_register
         write_multiple_registers = client.write_multiple_registers
         
-        kwargs = {kwargs}
+        _arguments = {kwargs}
 {code}
-    return main()    
+        return main()    
 '''
 
 
@@ -97,7 +94,7 @@ class Collector:
             import textwrap
             return textwrap.indent(text, amount * ch)
 
-        code = CONTEXT.format(comm=comm, code=indent(code, 4), kwargs=kwargs)
+        code = CONTEXT.format(comm=comm, code=indent(code, 8), kwargs=kwargs)
         module = types.ModuleType(name)
         exec(code, module.__dict__)
         return module
