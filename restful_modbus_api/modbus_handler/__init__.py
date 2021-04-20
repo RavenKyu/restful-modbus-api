@@ -135,6 +135,7 @@ class ModbusClient(_ModbusClient):
 
     # =========================================================================
     @error_handle
+    @bit8_boolean
     @response_handle
     def read_discrete_inputs(self, command):
         parser = argument_parser()
