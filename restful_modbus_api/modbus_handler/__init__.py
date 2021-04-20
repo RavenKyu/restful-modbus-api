@@ -107,7 +107,6 @@ class ModbusClient(_ModbusClient):
                     for x in data]
             data = itertools.chain.from_iterable(data)
             data = list(data)
-            data.reverse()
             return b''.join(data)
         return func
 
