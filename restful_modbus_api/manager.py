@@ -97,7 +97,7 @@ class Collector:
         code = CONTEXT.format(comm=comm, code=indent(code, 8), kwargs=kwargs)
         module = types.ModuleType(name)
         exec(code, module.__dict__)
-        return module
+        return module, code
 
     # =========================================================================
     def crontab_add_second(self, crontab):
@@ -167,15 +167,28 @@ class Collector:
             type=trigger_type, setting=trigger_args)
 
     # =========================================================================
+    @staticmethod
+    def insert_number_each_line(data: str):
+        result = list()
+        data = data.split('\n')
+        for (number, line) in enumerate(data):
+            result.append(f'{number + 1:04} {line}')
+        return '\n'.join(result)
+
+    # =========================================================================
     def execute_script(self, schedule_name, template_name, **kwargs):
         (comm, templates) = operator.itemgetter(
             'comm', 'templates')(self.templates[schedule_name])
         (code, template) = operator.itemgetter(
             'code', 'template')(templates[template_name])
-        module = Collector.get_python_module(
+        module, code = Collector.get_python_module(
             code, schedule_name, comm, kwargs)
-
-        data = module._main()
+        try:
+            data = module._main()
+        except Exception as e:
+            code = Collector.insert_number_each_line(code)
+            self.logger.error(f'{e}\ncode: \n{code}')
+            raise
         result = get_json_data_with_template(data, template=template)
         result['hex'] = data.hex(' ')
         return result
