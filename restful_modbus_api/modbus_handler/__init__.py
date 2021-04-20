@@ -357,7 +357,7 @@ def get_json_data_with_template(data: bytes, template):
     result['datetime'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     result['data'] = dict()
-    key = ['type', 'hex', 'value', 'note', 'scale', 'scaled_value']
+    key = ['type', 'hex', 'raw', 'note', 'scale', 'value']
 
     for i, t in enumerate(template):
         try:
