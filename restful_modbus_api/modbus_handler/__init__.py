@@ -107,7 +107,6 @@ class ModbusClient(_ModbusClient):
                     for x in data]
             data = itertools.chain.from_iterable(data)
             data = list(data)
-            data.reverse()
             return b''.join(data)
         return func
 
@@ -135,6 +134,7 @@ class ModbusClient(_ModbusClient):
 
     # =========================================================================
     @error_handle
+    @bit8_boolean
     @response_handle
     def read_discrete_inputs(self, command):
         parser = argument_parser()
@@ -357,7 +357,7 @@ def get_json_data_with_template(data: bytes, template):
     result['datetime'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     result['data'] = dict()
-    key = ['type', 'hex', 'value', 'note', 'scale', 'scaled_value']
+    key = ['type', 'hex', 'raw', 'note', 'scale', 'value']
 
     for i, t in enumerate(template):
         try:
