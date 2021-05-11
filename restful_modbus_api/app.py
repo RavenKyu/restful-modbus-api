@@ -1,10 +1,20 @@
+import os
+import yaml
+import logging.config
+import logging.handlers
 from flask import Flask
-
 from restful_modbus_api.manager import Collector
 from restful_modbus_api.modules.api.v1.api import bp as api_v1
 # from restful_modbus_api.modules import NoContent
 # from restful_modbus_api.modules.schedules.schedules import bp as module_schedule
 # from restful_modbus_api.modules.base.base import bp as module_base
+
+_ROOT = os.path.abspath(os.path.dirname(__file__))
+file = os.path.join(_ROOT, 'utils', 'logger.cfg')
+
+with open(file) as f:
+    logging_handler = yaml.safe_load(f)
+logging.config.dictConfig(logging_handler)
 
 collector = Collector()
 
