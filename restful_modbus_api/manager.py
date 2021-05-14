@@ -213,6 +213,7 @@ class Collector:
 
     # =========================================================================
     def request_data(self, name):
+        st = time.time()
         if name not in self.templates:
             logging.warning(
                 f'{name} is not in the template store. '
@@ -237,7 +238,9 @@ class Collector:
         self.data['__last_fetch'][name] = [result]
         self.data[name].append(result)
         self.data[name].rotate()
-        logging.info(f'{name}::{template_name} - Succeed to collect data.')
+        latency_ms = int((time.time() - st) * 1000)
+        logging.info(f'{name}::{template_name} - Succeed to collect data. '
+                     f'- {latency_ms}ms')
         return result
 
     # =========================================================================
