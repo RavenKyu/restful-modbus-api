@@ -32,7 +32,7 @@ def result(f):
         except NotFound as e:
             return custom_error(str(e), 404)
         except Exception as e:
-            bp.logger.exception(msg=str(e), exc_info=e)
+            logging.exception(msg=str(e), exc_info=e)
             raise
     return func
 
@@ -125,11 +125,12 @@ def schedule_template(schedule_name, template_name):
             schedule_name, template_name)
         return template
 
+
 ###############################################################################
 @bp.route('/schedules/<string:schedule_name>/templates/'
           '<string:template_name>/on-demand-run', methods=('POST',))
 @result
-def schedule_template_on_demend_run(schedule_name, template_name):
+def schedule_template_on_demand_run(schedule_name, template_name):
     if request.method == 'POST':
         query = request.args.to_dict()
         arguments = request.get_json(force=True)
