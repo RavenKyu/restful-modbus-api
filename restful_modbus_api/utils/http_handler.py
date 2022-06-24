@@ -1,13 +1,12 @@
 import requests
-
+import logging
 
 ################################################################################
 class CommunicationHTTP:
     # ==========================================================================
-    def __init__(self, host, port, logger, endpoint=''):
+    def __init__(self, host, port, endpoint=''):
         self.host = host
         self.port = port
-        self.logger = logger
         if endpoint:
             endpoint += '/'
         self.url = f'http://{self.host}:{self.port}/{endpoint}'
@@ -15,11 +14,11 @@ class CommunicationHTTP:
     # ==========================================================================
     def result(self, response):
         if not response.ok:
-            self.logger.error(f'code: {response.status_code} '
+            logging.error(f'code: {response.status_code} '
                               f'message:{response.reason}')
             return response.ok, None, response.reason
 
-        self.logger.debug(f'code: {response.status_code}, url: {response.url}')
+        logging.debug(f'code: {response.status_code}, url: {response.url}')
         return response.ok, response.text, response.reason
 
     # ==========================================================================

@@ -3,7 +3,7 @@
 ## Template File
 
 ```bahs
-$ restful-modubs-api -t sample_template.yml
+$ restful-modbus-api -t sample_template.yml
 ```
 
 ```json

@@ -1,11 +1,9 @@
+import logging
 import types
 import operator
 import time
 from collections import deque
 from apscheduler.schedulers.background import BackgroundScheduler
-
-
-from restful_modbus_api.utils.logger import get_logger
 from restful_modbus_api.modbus_handler import get_json_data_with_template
 
 CONTEXT = '''
@@ -37,6 +35,7 @@ class ExceptionResponse(Exception):
 class NotFound(Exception):
     pass
 
+
 ###############################################################################
 class ExceptionScheduleReduplicated(Exception):
     pass
@@ -45,7 +44,8 @@ class ExceptionScheduleReduplicated(Exception):
 ###############################################################################
 class Collector:
     def __init__(self):
-        self.logger = get_logger('collector')
+        logging.info('Collector Starting ...')
+
         self.device_info = None
         self.job_order_queue = None
 
@@ -56,7 +56,6 @@ class Collector:
 
         self.data = dict()
         self.data['__last_fetch'] = dict()
-        self.queue = deque(maxlen=60)
 
     # =========================================================================
     def wait_until(self, name, timeout, period=0.25, *args, **kwargs):
@@ -69,6 +68,7 @@ class Collector:
 
     # =========================================================================
     def add_job_schedules(self, schedule_templates: list):
+        logging.debug("Adding schedules with template.")
         for schedule_template in schedule_templates:
             schedule_name, trigger = operator.itemgetter(
                 'schedule_name', 'trigger')(schedule_template)
@@ -76,16 +76,16 @@ class Collector:
                               self.get_schedule_jobs()]
             if schedule_name in schedule_names:
                 msg = f'The schedule name \'{schedule_name}\' is already assigned.'
-                self.logger.error(msg)
+                logging.error(msg)
                 raise ExceptionScheduleReduplicated(msg)
 
             self.templates[schedule_name] = schedule_template
-            # self.templates[schedule_name]['templates'] = dict()
             self._add_job_schedule(
                 schedule_name,
                 trigger_type=trigger['type'],
                 trigger_setting=trigger['setting'])
-
+            logging.debug(
+                f'Schedule "{schedule_name}" is added in the job scheduler.')
 
     # =========================================================================
     @staticmethod
@@ -114,7 +114,9 @@ class Collector:
             raise ValueError(
                 'crontab need 6 values. '
                 'second, minute, hour, day, month, day_of_week')
-        return dict(zip(cron, crontab))
+        value = dict(zip(cron, crontab))
+        logging.debug(f'crontab input: {crontab}\t-> output: {value}')
+        return value
 
     # =========================================================================
     def _add_job_schedule(self, key, trigger_type, trigger_setting):
@@ -140,17 +142,27 @@ class Collector:
     # =========================================================================
     def remove_job_schedule(self, schedule_name: str):
         self.get_schedule_job(schedule_name)
+        logging.debug(
+            f'Removing the schedule "{schedule_name}" from scheduler.')
         self.scheduler.remove_job(schedule_name)
+
         try:
+            logging.debug(f'Removing the collected data.')
             del self.data[schedule_name]
         except KeyError:
-            # it should be failing to collect data. such as not connecting.
-            pass
+            logging.warning(
+                f'Failed to find the schedule name "{schedule_name}". '
+                f'It should be failing to collect data. '
+                f'please check the connection is ok.')
+
+        logging.debug(f'Removing the template "{schedule_name}" '
+                      f'from the template store.')
         del self.templates[schedule_name]
         return
 
     # =========================================================================
     def modify_job_schedule(self, schedule_name, trigger_type, trigger_args):
+        logging.debug('Modifying the job schedule "{schedule_name}".')
         if trigger_type == 'crontab' and 'crontab' in trigger_args:
             crontab = self.crontab_add_second(trigger_args['crontab'])
             trigger = 'cron'
@@ -165,6 +177,7 @@ class Collector:
         job.reschedule(trigger, **setting)
         self.templates[schedule_name]['trigger'] = dict(
             type=trigger_type, setting=trigger_args)
+        logging.debug(f'leaving function ...')
 
     # =========================================================================
     @staticmethod
@@ -177,6 +190,9 @@ class Collector:
 
     # =========================================================================
     def execute_script(self, schedule_name, template_name, **kwargs):
+        logging.debug(f'{schedule_name}::{template_name} - '
+                      f'Preparing to execute the script.')
+
         (comm, templates) = operator.itemgetter(
             'comm', 'templates')(self.templates[schedule_name])
         (code, template) = operator.itemgetter(
@@ -184,10 +200,12 @@ class Collector:
         module, code = Collector.get_python_module(
             code, schedule_name, comm, kwargs)
         try:
+            logging.debug(f'{schedule_name}::{template_name} - '
+                          f'Executing the script')
             data = module._main()
         except Exception as e:
             code = Collector.insert_number_each_line(code)
-            self.logger.error(f'{e}\ncode: \n{code}')
+            logging.error(f'{e}\ncode: \n{code}')
             raise
         result = get_json_data_with_template(data, template=template)
         result['hex'] = data.hex(' ')
@@ -195,19 +213,20 @@ class Collector:
 
     # =========================================================================
     def request_data(self, name):
+        st = time.time()
         if name not in self.templates:
-            self.logger.warning(
+            logging.warning(
                 f'{name} is not in the template store. '
                 f'add template of \'{name}\'')
             return
 
         if not self.templates[name]['default_template']:
-            self.logger.warning(f'\'default template\' is not set for {name}')
+            logging.warning(f'\'default template\' is not set for {name}')
             return
 
         if not self.templates[name]['templates']:
-            self.logger.warning(f'no template to run ... '
-                                f'please add template first')
+            logging.warning(
+                f'no template to run ... please add template first')
 
         (comm, templates, template_name) = operator.itemgetter(
             'comm', 'templates', 'default_template')(self.templates[name])
@@ -219,12 +238,16 @@ class Collector:
         self.data['__last_fetch'][name] = [result]
         self.data[name].append(result)
         self.data[name].rotate()
+        latency_ms = int((time.time() - st) * 1000)
+        logging.info(f'{name}::{template_name} - Succeed to collect data. '
+                     f'- {latency_ms}ms')
         return result
 
     # =========================================================================
     def get_schedule_jobs(self):
         jobs = self.scheduler.get_jobs()
         if not jobs:
+            logging.debug('No schedules running now.')
             return jobs
         result = list()
         for job in jobs:
@@ -315,6 +338,9 @@ class Collector:
         job = self.scheduler.get_job(schedule_name)
         try:
             job.pause()
+            logging.debug(f'The job schedule is pausing for '
+                          f'running the on-demand-run. - '
+                          f'{schedule_name}::{template_name}')
             if not self.wait_until(schedule_name, timeout=timeout):
                 raise TimeoutError(
                     'Timeout. '
@@ -324,4 +350,5 @@ class Collector:
                 schedule_name, template_name, **arguments)
         finally:
             job.resume()
+            logging.debug(f'Resumed the schedule job - {schedule_name}')
         return result

@@ -27,10 +27,15 @@ setup(
         'apscheduler',
     ],
     tests_require=tests_require,
+    package_dir={"restful_modbus_api": "restful_modbus_api"},
     packages=find_packages(
-        exclude=['dummy-modbus-server', 'dummy-modubs-server.*',
+        where='.',
+        include=['restful_modbus_api',
+                 'restful_modbus_api.*'],
+        exclude=['dummy-*',
                  'tests', 'tests.*']),
-    package_data={},
+    package_data={
+        "": ["*.cfg"]},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",

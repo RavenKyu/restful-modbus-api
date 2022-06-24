@@ -1,17 +1,15 @@
 import flask
+import logging
 import operator
 from flask import request, abort, make_response
 from flask import jsonify, redirect, url_for
 from functools import wraps
 from restful_modbus_api.modules.api import CustomBlueprint
-from restful_modbus_api.utils.logger import get_logger
 
 from restful_modbus_api.manager import (
     ExceptionResponse,
     ExceptionScheduleReduplicated,
     NotFound)
-
-logger = get_logger('api-v1')
 
 bp = CustomBlueprint('api', __name__)
 
@@ -34,7 +32,7 @@ def result(f):
         except NotFound as e:
             return custom_error(str(e), 404)
         except Exception as e:
-            logger.exception(msg=str(e), exc_info=e)
+            logging.exception(msg=str(e), exc_info=e)
             raise
     return func
 
@@ -53,7 +51,6 @@ def query_data_sort(data, query: str):
 def query_data(data, query):
     if 'sort' in query:
         data = query_data_sort(data, query['sort'])
-
     return data
 
 
@@ -128,11 +125,12 @@ def schedule_template(schedule_name, template_name):
             schedule_name, template_name)
         return template
 
+
 ###############################################################################
 @bp.route('/schedules/<string:schedule_name>/templates/'
           '<string:template_name>/on-demand-run', methods=('POST',))
 @result
-def schedule_template_on_demend_run(schedule_name, template_name):
+def schedule_template_on_demand_run(schedule_name, template_name):
     if request.method == 'POST':
         query = request.args.to_dict()
         arguments = request.get_json(force=True)
